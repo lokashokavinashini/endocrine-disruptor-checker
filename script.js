@@ -4,23 +4,26 @@ async function checkDisruptor() {
     result.textContent = 'Checking...';
 
     try {
-        // Fetch data from PubChem API
-        const pubChemResponse = await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${chemicalName}/JSON`);
+        // Create an array of API requests
+        const requests = [
+            fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${chemicalName}/JSON`),
+            fetch(`https://comptox.epa.gov/dashboard/api/chemicalinfo?search=${chemicalName}`)
+        ];
 
-        if (!pubChemResponse.ok) {
-            throw new Error('Chemical not found in PubChem database.');
+        // Use Promise.all to handle the requests in parallel
+        const responses = await Promise.all(requests.map(req => req.catch(e => e)));
+
+        // Check if any response failed
+        if (responses.some(response => response instanceof Error)) {
+            throw new Error('One or more requests failed.');
         }
 
-        const pubChemData = await pubChemResponse.json();
+        // Parse responses as JSON
+        const data = await Promise.all(responses.map(response => response.json()));
 
-        // Fetch data from EPA CompTox Chemicals Dashboard API
-        const compToxResponse = await fetch(`https://comptox.epa.gov/dashboard/api/chemicalinfo?search=${chemicalName}`);
-
-        if (!compToxResponse.ok) {
-            throw new Error('Chemical not found in EPA CompTox database.');
-        }
-
-        const compToxData = await compToxResponse.json();
+        // Extract and check data from PubChem and CompTox
+        const pubChemData = data[0];
+        const compToxData = data[1];
 
         // Example: Logic to determine if the chemical is an endocrine disruptor
         const isPubChemDisruptor = checkPubChemData(pubChemData);
@@ -48,6 +51,5 @@ function checkPubChemData(data) {
 
 function checkCompToxData(data) {
     // Check EPA CompTox data for disruptor properties
-    // Example logic; adapt based on CompTox API response format
     return data.results && data.results.some(result => result.properties.some(prop => prop.toLowerCase().includes('endocrine disruptor')));
 }
