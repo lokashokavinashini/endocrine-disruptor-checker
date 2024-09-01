@@ -13,14 +13,16 @@ async function checkDisruptor() {
 
         const data = await response.json();
 
-        // Example: Check if the chemical has properties indicating it is an endocrine disruptor
-        const isDisruptor = checkPubChemData(data);
+        // Example: Check if the chemical is tagged as an endocrine disruptor in the API response
+        // You would need to inspect the API's response structure for accurate conditions
+        const properties = data.PropertyTable?.Properties || [];
+        const isDisruptor = properties.some(prop => prop.Description?.toLowerCase().includes('endocrine disruptor'));
 
         if (isDisruptor) {
             result.textContent = `${chemicalName} is a known endocrine disruptor.`;
             result.style.color = 'red';
         } else {
-            result.textContent = `${chemicalName} is not listed as an endocrine disruptor in the PubChem database.`;
+            result.textContent = `${chemicalName} is not listed as an endocrine disruptor in the database.`;
             result.style.color = 'green';
         }
 
