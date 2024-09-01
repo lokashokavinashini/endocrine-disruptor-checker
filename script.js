@@ -4,36 +4,23 @@ async function checkDisruptor() {
     result.textContent = 'Checking...';
 
     try {
-        // Create an array of API requests
-        const requests = [
-            fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${chemicalName}/JSON`),
-            fetch(`https://comptox.epa.gov/dashboard/api/chemicalinfo?search=${chemicalName}`)
-        ];
+        // Fetch data from PubChem API
+        const response = await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${chemicalName}/JSON`);
 
-        // Use Promise.all to handle the requests in parallel
-        const responses = await Promise.all(requests.map(req => req.catch(e => e)));
-
-        // Check if any response failed
-        if (responses.some(response => response instanceof Error)) {
-            throw new Error('One or more requests failed.');
+        if (!response.ok) {
+            throw new Error('Chemical not found in PubChem database.');
         }
 
-        // Parse responses as JSON
-        const data = await Promise.all(responses.map(response => response.json()));
+        const data = await response.json();
 
-        // Extract and check data from PubChem and CompTox
-        const pubChemData = data[0];
-        const compToxData = data[1];
+        // Example: Check if the chemical has properties indicating it is an endocrine disruptor
+        const isDisruptor = checkPubChemData(data);
 
-        // Example: Logic to determine if the chemical is an endocrine disruptor
-        const isPubChemDisruptor = checkPubChemData(pubChemData);
-        const isCompToxDisruptor = checkCompToxData(compToxData);
-
-        if (isPubChemDisruptor || isCompToxDisruptor) {
+        if (isDisruptor) {
             result.textContent = `${chemicalName} is a known endocrine disruptor.`;
             result.style.color = 'red';
         } else {
-            result.textContent = `${chemicalName} is not listed as an endocrine disruptor in the databases.`;
+            result.textContent = `${chemicalName} is not listed as an endocrine disruptor in the PubChem database.`;
             result.style.color = 'green';
         }
 
@@ -44,12 +31,12 @@ async function checkDisruptor() {
 }
 
 function checkPubChemData(data) {
-    // Check PubChem data for disruptor properties
+    // Extract properties related to endocrine disruption from PubChem data
     const properties = data.PropertyTable?.Properties || [];
-    return properties.some(prop => prop.Description?.toLowerCase().includes('endocrine disruptor'));
-}
 
-function checkCompToxData(data) {
-    // Check EPA CompTox data for disruptor properties
-    return data.results && data.results.some(result => result.properties.some(prop => prop.toLowerCase().includes('endocrine disruptor')));
+    // Check for keywords indicating endocrine disruption
+    return properties.some(prop => {
+        const description = prop.Description?.toLowerCase() || '';
+        return description.includes('endocrine disruptor') || description.includes('hormone disruptor');
+    });
 }
